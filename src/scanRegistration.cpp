@@ -38,7 +38,9 @@
 #include <cmath>
 #include <vector>
 #include <string>
-#include "aloam_velodyne/common.h"
+#include "aloam_velodyne/common.h"  
+//指的就是include下面的aloam_velodyne这个文件夹下的common.h这个头文件
+//
 #include "aloam_velodyne/tic_toc.h"
 #include <nav_msgs/Odometry.h>
 #include <opencv/cv.h>
@@ -83,7 +85,7 @@ bool PUB_EACH_LINE = false;
 double MINIMUM_RANGE = 0.1; 
 
 template <typename PointT>
-void removeClosedPointCloud(const pcl::PointCloud<PointT> &cloud_in,
+void removeClosedPointCloud(const pcl::PointCloud<PointT> &cloud_in,  
                               pcl::PointCloud<PointT> &cloud_out, float thres)
 {
     if (&cloud_in != &cloud_out)
@@ -98,13 +100,13 @@ void removeClosedPointCloud(const pcl::PointCloud<PointT> &cloud_in,
     {
         if (cloud_in.points[i].x * cloud_in.points[i].x + cloud_in.points[i].y * cloud_in.points[i].y + cloud_in.points[i].z * cloud_in.points[i].z < thres * thres)
             continue;
-        cloud_out.points[j] = cloud_in.points[i];
-        j++;
+        cloud_out.points[j] = cloud_in.points[i]; //超过一定距离的点才加入新的点云中
+        j++;//j可以表征加入的点的数量
     }
     if (j != cloud_in.points.size())
     {
         cloud_out.points.resize(j);
-    }
+    }//如果不是全部加入，重新分配输出的点云的存储大小
 
     cloud_out.height = 1;
     cloud_out.width = static_cast<uint32_t>(j);
@@ -116,7 +118,7 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg)
     if (!systemInited)
     { 
         systemInitCount++;
-        if (systemInitCount >= systemDelay)
+        if (systemInitCount >= systemDelay) //Delay本来是说丢弃掉前面几帧的数据
         {
             systemInited = true;
         }
@@ -168,10 +170,10 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg)
 
         if (N_SCANS == 16)
         {
-            scanID = int((angle + 15) / 2 + 0.5);
+            scanID = int((angle + 15) / 2 + 0.5);//如果换成速腾的话，怎么确定这个ID呢？
             if (scanID > (N_SCANS - 1) || scanID < 0)
             {
-                count--;
+                count--; //跳过当前点
                 continue;
             }
         }
@@ -235,20 +237,22 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg)
             }
         }
 
-        float relTime = (ori - startOri) / (endOri - startOri);
-        point.intensity = scanID + scanPeriod * relTime;
-        laserCloudScans[scanID].push_back(point); 
+        float relTime = (ori - startOri) / (endOri - startOri); // 每个点扫描的角度不同 线性插值可计算出对应的扫描角度
+        point.intensity = scanID + scanPeriod * relTime; //用反射值强度的数据域存放线序和实际的扫描时间
+        laserCloudScans[scanID].push_back(point);  //把对应线束的扫描点压入对应存储的数组中去
     }
     
-    cloudSize = count;
-    printf("points size %d \n", cloudSize);
+    cloudSize = count; //count在之前压的过程中就已经针对不能压入的点有所减小
+    printf("points size %d \n [after scanID detect:]", cloudSize);
 
-    pcl::PointCloud<PointType>::Ptr laserCloud(new pcl::PointCloud<PointType>());
+    pcl::PointCloud<PointType>::Ptr laserCloud(new pcl::PointCloud<PointType>());  //智能指针
+    // pcl::PointCloud<PointType>::Ptr laserCloud(new pcl::PointCloud<PointType>());  //用new出来的指向点云的指针去创建一个新的指向点云的指针
     for (int i = 0; i < N_SCANS; i++)
     { 
-        scanStartInd[i] = laserCloud->size() + 5;
-        *laserCloud += laserCloudScans[i];
-        scanEndInd[i] = laserCloud->size() - 6;
+        scanStartInd[i] = laserCloud->size() + 5; //第0条线在所有点云点中的开始索引是5，
+        *laserCloud += laserCloudScans[i];//不断的把vector中存储的各线的点放入到所有的点云（pcl的数据结构）中
+        scanEndInd[i] = laserCloud->size() - 6; //第0条线在所有点云中的结束索引是：如共有100个点，索引为94，用于索引的话其实是第95个点，丢弃额后面的5个点
+        
     }
 
     printf("prepare time %f \n", t_prepare.toc());
